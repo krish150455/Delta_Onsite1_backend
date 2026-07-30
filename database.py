@@ -11,6 +11,9 @@ def create_tables():
         cursor.execute("""CREATE TABLE IF NOT EXISTS favorite_movies(id INT PRIMARY KEY,title TEXT,
         overview TEXT,runtime INT, release_date VARCHAR(100),rating FLOAT, genre VARCHAR(100),poster TEXT,
         backdrop TEXT, is_favorite BOOLEAN DEFAULT FALSE)""")
+        cursor.execute("""CREATE TABLE IF NOT EXISTS watchlist_movies(id INT PRIMARY KEY,title TEXT,
+                overview TEXT,runtime INT, release_date VARCHAR(100),rating FLOAT, genre VARCHAR(100),poster TEXT,
+                backdrop TEXT)""")
         conn.commit()
     except psycopg2.Error as error:
         print("Database error:",error)

@@ -36,3 +36,36 @@ class FavoriteRequest(BaseModel):
         poster: Optional[str] = None
         backdrop: Optional[str] = None
         is_favorite: bool
+
+class DeleteFavoriteRequest(BaseModel):
+     id:int
+
+class TrendingResponse(BaseModel):
+    id: int
+    title: str
+    release_date: str
+    rating: float
+    poster: Optional[str] = None
+
+
+class SimilarMoviesRequest(BaseModel):
+    movie_id: int
+
+
+class SimilarMovieResponse(BaseModel):
+    id: int
+    title: str
+    release_date: str
+    rating: float
+    poster: Optional[str] = None
+
+class WatchlistRequest(BaseModel):
+        id: int
+        title: str
+        overview: str
+        runtime: int
+        release_date: str
+        rating: float
+        genre: str
+        poster: Optional[str] = None
+        backdrop: Optional[str] = None

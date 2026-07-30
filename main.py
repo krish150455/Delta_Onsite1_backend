@@ -4,7 +4,7 @@ from typing import List
 import os
 import httpx
 from dotenv import load_dotenv
-from schemas import SearchRequest,SearchResponse,MovieRequest,MovieResponse, FavoriteRequest
+from schemas import SearchRequest,SearchResponse,MovieRequest,MovieResponse, FavoriteRequest, TrendingResponse, SimilarMoviesRequest, SimilarMovieResponse, DeleteFavoriteRequest, WatchlistRequest
 from database import get_connection,create_tables
 
 load_dotenv()
@@ -69,7 +69,7 @@ async def movie_details(request: MovieRequest):
         runtime=movie["runtime"],
         release_date=movie["release_date"],
         rating=movie["vote_average"],
-        genre=movie["genres"][0]["name"],
+        genre=movie["genres"][0]["name"] if movie["genres"] else "",
         poster=IMAGE_BASE + movie["poster_path"]
         if movie["poster_path"] else None,
         backdrop=BACKDROP_BASE + movie["backdrop_path"]
@@ -86,9 +86,7 @@ async def mark_favorite(request: FavoriteRequest):
                        (request.id,request.title,request.overview,request.runtime,request.release_date,request.rating,
                         request.genre,request.poster,request.backdrop,request.is_favorite) )
         conn.commit()
-        return {
-    "message": "Movie added to favorites"
-}
+        return {"message": "Movie added to favorites"}
     finally:
         if conn:
             cursor.close()
@@ -114,6 +112,118 @@ async def get_favorites():
                 poster=each[7],
                 backdrop=each[8],
                 is_favorite=each[9]
+            ))
+        return listie
+    finally:
+        if conn:
+            cursor.close()
+            conn.close()
+
+@app.delete("/movies/favorites")
+async def delete_favorite(request: DeleteFavoriteRequest):
+    conn=get_connection()
+    cursor=conn.cursor()
+    try:
+        cursor.execute("""DELETE FROM favorite_movies WHERE id=%s""",(request.id,))    
+        conn.commit()
+    finally:
+        if conn:
+            cursor.close()
+            conn.close()
+
+@app.get("/movies/trending", response_model=list[TrendingResponse])
+async def trending_movies():
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            BASE_URL + "/trending/movie/day",
+            headers=HEADERS
+        )
+
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=response.json()
+        )
+
+    data = response.json()
+    listie=[]
+    for movie in data["results"]:
+        listie.append(TrendingResponse(
+                    id=movie["id"],
+                    title=movie["title"],
+                    release_date=movie["release_date"],
+                    rating=movie["vote_average"],
+                    poster=IMAGE_BASE + movie["poster_path"]
+                    if movie["poster_path"] else None
+                ))
+
+    return listie
+
+@app.post("/movies/similar", response_model=list[SimilarMovieResponse])
+async def similar_movies(request:SimilarMoviesRequest):
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            BASE_URL + f"/movie/{request.movie_id}/recommendations",
+            headers=HEADERS
+        )
+
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=response.json()
+        )
+
+    data = response.json()
+    listie=[]
+
+    for movie in data["results"]:
+        listie.append(SimilarMovieResponse(
+                    id=movie["id"],
+                    title=movie["title"],
+                    release_date=movie["release_date"],
+                    rating=movie["vote_average"],
+                    poster=IMAGE_BASE + movie["poster_path"]
+                    if movie["poster_path"] else None
+                ))
+
+    return listie
+
+@app.post("/movies/watchlist")
+async def mark_watchlist(request: WatchlistRequest):
+    conn=get_connection()
+    cursor=conn.cursor()
+    try:
+        cursor.execute("""INSERT INTO watchlist_movies VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ON CONFLICT(id) DO NOTHING""",
+                       (request.id,request.title,request.overview,request.runtime,request.release_date,request.rating,
+                        request.genre,request.poster,request.backdrop) )
+        conn.commit()
+        return { "message": "Movie added to Watchlist"}
+    finally:
+        if conn:
+            cursor.close()
+            conn.close()
+
+@app.get("/movies/watchlist",response_model=list[WatchlistRequest])
+async def get_watchlist():
+    conn=get_connection()
+    cursor=conn.cursor()
+    try:
+        listie=[]
+        cursor.execute("""SELECT * FROM watchlist_movies""")
+        response=cursor.fetchall()
+        for each in response:
+            listie.append(WatchlistRequest(
+                id=each[0],
+                title=each[1],
+                overview=each[2],
+                runtime=each[3],
+                release_date=each[4],
+                rating=each[5],
+                genre=each[6],
+                poster=each[7],
+                backdrop=each[8]
             ))
         return listie
     finally:
